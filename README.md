@@ -1,5 +1,7 @@
 # 🏕️ outpost
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/ly0ADr?referralCode=bkF5UE&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 Self-hosted [OpenCode](https://opencode.ai) web UI in a Docker image, ready to deploy on [Railway](https://railway.app) (or any PaaS that builds Dockerfiles and forwards `$PORT`).
 
 > The container exposes the OpenCode web UI with no built-in auth. Put [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-public-app/) (or equivalent) in front of the public domain before exposing it — see [Auth](#auth) below.
