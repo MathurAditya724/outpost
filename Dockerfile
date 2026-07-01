@@ -93,7 +93,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     NODE_VERSION=$NODE_VERSION \
-    BROWSER=true
+    BROWSER=none
 
 # OS packages + GitHub CLI in a single apt transaction.
 COPY --from=downloader \
