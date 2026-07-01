@@ -1,4 +1,10 @@
 # Changelog
+## 0.4.4
+
+### Bug Fixes 🐛
+
+- Set BROWSER=none to prevent xdg-open crash in headless container by @MathurAditya724 in [3427e4f4](https://github.com/MathurAditya724/outpost/commit/3427e4f41c3796090f98361542c472913d105282)
+
 ## 0.4.3
 
 ### New Features ✨
