@@ -8,8 +8,24 @@ import { extractEntityKey } from "./entity"
 import type { EntityResolver } from "./entity-resolver"
 import type { GitHubFetcher } from "./github-api"
 import type { Pipeline } from "./pipeline"
-import { renderTemplate } from "./template"
+import { lookupString, renderTemplate } from "./template"
 import type { NormalizedTrigger, SkippedDispatch } from "./types"
+
+// Normalized repository allowlist. Both lists hold lowercased entries.
+// Empty lists mean "not configured" -> allow everything.
+export type Allowlist = { orgs: string[]; repos: string[] }
+
+// Decide whether an event for `repo` (in "owner/repo" form) is allowed.
+// Fail-closed: when the allowlist is configured but no repo can be
+// resolved, the event is rejected.
+export function isRepoAllowed(repo: string | null, allowlist: Allowlist): boolean {
+  if (allowlist.orgs.length === 0 && allowlist.repos.length === 0) return true
+  if (!repo) return false
+  const lc = repo.toLowerCase()
+  if (allowlist.repos.includes(lc)) return true
+  const owner = lc.split("/")[0]
+  return owner.length > 0 && allowlist.orgs.includes(owner)
+}
 
 // Match an event pattern against an incoming event + action.
 // Supported pattern forms:
@@ -66,6 +82,7 @@ export async function evaluateAndDispatch(opts: {
   pipeline: Pipeline
   entityResolver?: EntityResolver | null
   githubFetcher?: GitHubFetcher | null
+  allowlist?: Allowlist
 }): Promise<{ dispatched: string[]; skipped: SkippedDispatch[] }> {
   const dispatched: string[] = []
   const skipped: SkippedDispatch[] = []
@@ -80,6 +97,29 @@ export async function evaluateAndDispatch(opts: {
       delivery_id: opts.deliveryId,
       trigger_count: opts.triggers.length,
     })
+  }
+
+  // Repository allowlist gate. Applies to every source. When configured
+  // and the event's repo isn't allowed (or can't be resolved), skip all
+  // matched triggers before any dispatch. Repo is taken from the resolved
+  // entity key first, falling back to the raw payload for events that
+  // don't map to a trackable entity.
+  const allowlist = opts.allowlist
+  if (allowlist && (allowlist.orgs.length > 0 || allowlist.repos.length > 0)) {
+    const repo = entityKey?.repo ?? lookupString(opts.payload, "repository.full_name")
+    if (!isRepoAllowed(repo, allowlist)) {
+      for (const t of matched) {
+        skipped.push({ name: t.name, reason: "repo_not_allowed" })
+      }
+      Sentry.logger.info("trigger.repo_not_allowed", {
+        event: opts.event,
+        action: opts.action,
+        delivery_id: opts.deliveryId,
+        repo: repo ?? "",
+        matched_count: matched.length,
+      })
+      return { dispatched, skipped }
+    }
   }
 
   for (const t of matched) {

@@ -88,6 +88,7 @@ export function createGithubWebhookHandler(opts: GithubWebhookHandlerOptions): W
           },
           pipeline: context.pipeline,
           githubFetcher,
+          allowlist: context.allowlist,
         })
 
         return c.json({

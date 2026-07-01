@@ -139,6 +139,7 @@ export function createGithubAppHandler(opts: GithubAppHandlerOptions): WebhookHa
           },
           pipeline: context.pipeline,
           githubFetcher,
+          allowlist: context.allowlist,
         })
 
         return c.json({

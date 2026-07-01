@@ -140,6 +140,7 @@ export function createEmailWebhookHandler(opts: EmailWebhookHandlerOptions): Web
           },
           pipeline: context.pipeline,
           entityResolver: context.entityResolver,
+          allowlist: context.allowlist,
         })
 
         return c.json({

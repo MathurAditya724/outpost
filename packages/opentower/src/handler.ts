@@ -5,8 +5,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
+import { StreamableHTTPTransport } from "@hono/mcp"
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import * as Sentry from "@sentry/bun"
-import { Hono } from "hono"
+import { type Context, Hono, type Next } from "hono"
 import { serveStatic } from "hono/bun"
 import { cors } from "hono/cors"
 import type { CronScheduler } from "./cron"
@@ -42,12 +44,46 @@ function safeTokenCompare(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb)
 }
 
+// Bearer-token auth shared by the JSON API and the MCP endpoint. Returns
+// 503 when no token is configured, 401 on a missing/invalid token.
+// `label` only customizes the "not configured" message.
+function createBearerAuth(apiToken: string, label: string) {
+  return async (c: Context<AppEnv>, next: Next) => {
+    if (!apiToken) {
+      return c.json({ error: `${label} not configured (OPENTOWER_API_TOKEN not set)` }, 503)
+    }
+    const authHeader = c.req.header("authorization") ?? ""
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : ""
+    if (!token || !safeTokenCompare(token, apiToken)) {
+      return c.json({ error: "unauthorized" }, 401)
+    }
+    await next()
+  }
+}
+
+// Origin validation for the MCP endpoint (guards against DNS-rebinding
+// per the MCP spec). Requests without an Origin header (native MCP
+// clients, curl) are allowed — Bearer auth still applies. When an Origin
+// is present it must match the configured CORS origin, or be localhost.
+function isMcpOriginAllowed(origin: string | undefined, corsOrigin: string | null): boolean {
+  if (!origin) return true
+  if (corsOrigin === "*") return true
+  if (corsOrigin && origin === corsOrigin) return true
+  try {
+    const host = new URL(origin).hostname
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+  } catch {
+    return false
+  }
+}
+
 export function createApp(opts: {
   handlers: WebhookHandler[]
   handlerContext: HandlerContext
   store: LifecycleStore
   apiToken: string
   cronScheduler: CronScheduler | null
+  mcpServer?: McpServer | null
 }): Hono<AppEnv> {
   const app = new Hono<AppEnv>()
 
@@ -63,7 +99,8 @@ export function createApp(opts: {
       cors({
         origin: corsOrigin,
         allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowHeaders: ["Authorization", "Content-Type"],
+        allowHeaders: ["Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version"],
+        exposeHeaders: ["Mcp-Session-Id"],
         maxAge: 86400,
       }),
     )
@@ -121,15 +158,9 @@ export function createApp(opts: {
 
   // --- Dashboard JSON API ---
 
+  const apiAuth = createBearerAuth(opts.apiToken, "API")
+  app.use("/api/*", apiAuth)
   app.use("/api/*", async (c, next) => {
-    if (!opts.apiToken) {
-      return c.json({ error: "API not configured (OPENTOWER_API_TOKEN not set)" }, 503)
-    }
-    const authHeader = c.req.header("authorization") ?? ""
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : ""
-    if (!token || !safeTokenCompare(token, opts.apiToken)) {
-      return c.json({ error: "unauthorized" }, 401)
-    }
     c.set("store", opts.store)
     await next()
   })
@@ -152,6 +183,30 @@ export function createApp(opts: {
     app.delete("/api/cron/:id", cronHandlers.delete)
     app.post("/api/cron/:id/trigger", cronHandlers.trigger)
     app.get("/api/cron/:id/executions", cronHandlers.executions)
+  }
+
+  // --- MCP endpoint ---
+  // Authenticated Streamable HTTP transport for remote agent control.
+  // Only mounted when an MCP server is provided (which requires a token).
+  if (opts.mcpServer) {
+    const mcpServer = opts.mcpServer
+    const transport = new StreamableHTTPTransport()
+    // Connect the server to the transport exactly once. Memoizing the
+    // promise avoids a double-connect race when concurrent requests
+    // arrive before the first connection settles.
+    let connectPromise: Promise<void> | null = null
+    app.use("/mcp", createBearerAuth(opts.apiToken, "MCP"))
+    app.use("/mcp", async (c, next) => {
+      if (!isMcpOriginAllowed(c.req.header("origin"), corsOrigin)) {
+        return c.json({ error: "forbidden origin" }, 403)
+      }
+      await next()
+    })
+    app.all("/mcp", async (c) => {
+      if (!connectPromise) connectPromise = mcpServer.connect(transport)
+      await connectPromise
+      return transport.handleRequest(c)
+    })
   }
 
   // --- Static dashboard serving ---
