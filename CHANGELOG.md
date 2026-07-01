@@ -1,4 +1,10 @@
 # Changelog
+## 0.4.3
+
+### New Features ✨
+
+- (opentower) Add allowlist management API and dashboard UI by @MathurAditya724 in [#5](https://github.com/MathurAditya724/outpost/pull/5)
+
 ## 0.4.2
 
 ### New Features ✨
