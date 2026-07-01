@@ -244,6 +244,18 @@ export class ApiClient {
     })
   }
 
+  // Allowlist management
+  getAllowlist(): Promise<{ allowed_orgs: string[]; allowed_repos: string[] }> {
+    return this.request("/api/allowlist")
+  }
+
+  setAllowlist(opts: { allowed_orgs?: string[]; allowed_repos?: string[] }): Promise<{
+    allowed_orgs: string[]
+    allowed_repos: string[]
+  }> {
+    return this.request("/api/allowlist", undefined, { method: "PUT", body: opts })
+  }
+
   // Retention settings
   getRetention(): Promise<{ retention_days: number }> {
     return this.request("/api/retention")

@@ -1,5 +1,6 @@
 import type { Context } from "hono"
 import type { AppEnv } from "../handler"
+import type { Allowlist } from "../matchers"
 import { DEFAULT_RETENTION_DAYS } from "../storage"
 
 export function apiStatsHandler(c: Context<AppEnv>) {
@@ -62,4 +63,52 @@ export function apiDispatchesHandler(c: Context<AppEnv>) {
     return c.json({ error: `invalid status filter: ${status}` }, 400)
   }
   return c.json(store.listDispatches({ limit, cursor, status, event }))
+}
+
+// --- Allowlist management ---
+
+// Factory that closes over the mutable allowlist and the config persistence
+// callback so handlers can read/write the in-memory list and persist changes.
+export function makeAllowlistHandlers(opts: {
+  allowlist: Allowlist
+  persistAllowlist: (orgs: string[], repos: string[]) => Promise<void>
+}) {
+  const { allowlist, persistAllowlist } = opts
+
+  return {
+    get(c: Context<AppEnv>) {
+      return c.json({ allowed_orgs: allowlist.orgs, allowed_repos: allowlist.repos })
+    },
+
+    async set(c: Context<AppEnv>) {
+      const body = await c.req
+        .json<{ allowed_orgs?: unknown; allowed_repos?: unknown }>()
+        .catch((): { allowed_orgs?: unknown; allowed_repos?: unknown } => ({}))
+
+      const rawOrgs = body.allowed_orgs
+      const rawRepos = body.allowed_repos
+
+      if (rawOrgs !== undefined && !Array.isArray(rawOrgs)) {
+        return c.json({ error: "allowed_orgs must be an array of strings" }, 400)
+      }
+      if (rawRepos !== undefined && !Array.isArray(rawRepos)) {
+        return c.json({ error: "allowed_repos must be an array of strings" }, 400)
+      }
+
+      // Normalize: lowercase, trim, filter empty strings.
+      const orgs =
+        (rawOrgs as string[] | undefined)?.map((s) => String(s).toLowerCase().trim()).filter(Boolean) ?? allowlist.orgs
+      const repos =
+        (rawRepos as string[] | undefined)?.map((s) => String(s).toLowerCase().trim()).filter(Boolean) ??
+        allowlist.repos
+
+      // Update in-memory allowlist (same object reference used by matchers).
+      allowlist.orgs = orgs
+      allowlist.repos = repos
+
+      await persistAllowlist(orgs, repos)
+
+      return c.json({ allowed_orgs: allowlist.orgs, allowed_repos: allowlist.repos })
+    },
+  }
 }

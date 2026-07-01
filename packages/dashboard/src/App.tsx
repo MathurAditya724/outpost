@@ -1,6 +1,7 @@
 import { ErrorBoundary } from "@/components/error-boundary"
 import Layout from "@/components/layout"
 import { useToken } from "@/hooks/use-api"
+import AllowlistPage from "@/pages/allowlist"
 import CronPage from "@/pages/cron"
 import DashboardPage from "@/pages/dashboard"
 import DispatchesPage from "@/pages/dispatches"
@@ -30,6 +31,7 @@ function AppRoutes() {
         <Route path="/entities/:key" element={<EntityDetailPage />} />
         <Route path="/dispatches" element={<DispatchesPage />} />
         <Route path="/cron" element={<CronPage />} />
+        <Route path="/allowlist" element={<AllowlistPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/setup" element={<SetupPage />} />
