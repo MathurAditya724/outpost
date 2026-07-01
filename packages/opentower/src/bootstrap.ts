@@ -8,7 +8,13 @@ import * as Sentry from "@sentry/bun"
 import type { Hono } from "hono"
 import { version as PLUGIN_VERSION } from "../package.json"
 import { resolveBotLogin } from "./bot-identity"
-import { configPath, normalizeTrigger, readWebhookConfig, resolveGithubAppFromEnv } from "./config"
+import {
+  configPath,
+  normalizeTrigger,
+  persistAllowlistToConfig,
+  readWebhookConfig,
+  resolveGithubAppFromEnv,
+} from "./config"
 import { type CronScheduler, makeCronScheduler } from "./cron"
 import { type Dedup, makeDedup } from "./dedup"
 import { type EntityResolver, createEntityResolver } from "./entity-resolver"
@@ -195,6 +201,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<BootstrapResult
     apiToken,
     cronScheduler,
     mcpServer,
+    allowlist,
+    persistAllowlist: (orgs, repos) => persistAllowlistToConfig(configPath(), orgs, repos),
   })
 
   const server = Bun.serve({

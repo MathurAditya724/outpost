@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { emitTokenChange, useToken } from "@/hooks/use-api"
 import { useApiClient } from "@/hooks/use-api"
-import { getOpencodeUrl, setOpencodeUrl } from "@/lib/api"
+import { getOpencodeUrl, setOpencodeUrl, setToken } from "@/lib/api"
 import { isValidUrl } from "@/lib/validation"
-import { Loader2, Settings } from "lucide-react"
+import { Eye, EyeOff, Loader2, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 
 interface SettingsDialogProps {
@@ -24,15 +25,20 @@ interface SettingsDialogProps {
 export function SettingsDialog({ collapsed }: SettingsDialogProps) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState("")
+  const [apiToken, setApiToken] = useState("")
+  const [showToken, setShowToken] = useState(false)
   const [retentionDays, setRetentionDays] = useState("")
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [pruning, setPruning] = useState(false)
   const client = useApiClient()
+  const currentToken = useToken()
 
   useEffect(() => {
     if (open) {
       setUrl(getOpencodeUrl() || "")
+      setApiToken(currentToken || "")
+      setShowToken(false)
       setError("")
       // Load current retention setting
       if (client) {
@@ -42,12 +48,18 @@ export function SettingsDialog({ collapsed }: SettingsDialogProps) {
         )
       }
     }
-  }, [open, client])
+  }, [open, client, currentToken])
 
   async function handleSave() {
     const trimmed = url.trim()
     if (trimmed && !isValidUrl(trimmed)) {
       setError("Invalid URL format. Must be http:// or https://")
+      return
+    }
+
+    const trimmedToken = apiToken.trim()
+    if (!trimmedToken) {
+      setError("API token is required")
       return
     }
 
@@ -60,6 +72,10 @@ export function SettingsDialog({ collapsed }: SettingsDialogProps) {
     setSaving(true)
     try {
       setOpencodeUrl(trimmed)
+      if (trimmedToken !== currentToken) {
+        setToken(trimmedToken)
+        emitTokenChange()
+      }
       if (client && Number.isFinite(days) && days >= 1) {
         await client.setRetention(Math.floor(days))
       }
@@ -140,6 +156,33 @@ export function SettingsDialog({ collapsed }: SettingsDialogProps) {
             />
             <p className="text-xs text-muted-foreground">
               Base URL for your OpenCode instance. Session links will open in this instance.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="api-token">API Token</Label>
+            <div className="relative">
+              <Input
+                id="api-token"
+                type={showToken ? "text" : "password"}
+                placeholder="Bearer token for opentower API"
+                value={apiToken}
+                onChange={(e) => {
+                  setApiToken(e.target.value)
+                  setError("")
+                }}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Authentication token for the opentower API. Changing this will re-authenticate immediately.
             </p>
           </div>
           <div className="space-y-2">

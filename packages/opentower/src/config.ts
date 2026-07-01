@@ -55,6 +55,31 @@ export function normalizeTrigger(t: Trigger, botLogin: string | null): Normalize
   }
 }
 
+// Persist allowlist changes to the config file on disk. Reads the current
+// config, updates only the allowlist fields, and writes back to preserve
+// all other settings.
+export async function persistAllowlistToConfig(path: string, orgs: string[], repos: string[]): Promise<void> {
+  let cfg: Record<string, unknown> = {}
+  try {
+    const raw = await Bun.file(path).text()
+    cfg = JSON.parse(raw) as Record<string, unknown>
+  } catch {
+    // File missing or unparseable — start fresh.
+  }
+  if (orgs.length > 0) {
+    cfg.allowed_orgs = orgs
+  } else {
+    cfg.allowed_orgs = undefined
+  }
+  if (repos.length > 0) {
+    cfg.allowed_repos = repos
+  } else {
+    cfg.allowed_repos = undefined
+  }
+  await Bun.write(path, `${JSON.stringify(cfg, null, 2)}\n`)
+  logger.info("allowlist persisted to config", { path, orgs: orgs.length, repos: repos.length })
+}
+
 // Resolve GitHub App config from environment variables.
 // Returns null if any required variable is missing.
 export function resolveGithubAppFromEnv(): GithubAppConfig | null {

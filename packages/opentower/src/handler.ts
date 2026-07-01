@@ -20,10 +20,12 @@ import {
   apiPruneHandler,
   apiSetRetentionHandler,
   apiStatsHandler,
+  makeAllowlistHandlers,
 } from "./handlers/api"
 import { makeCronHandlers } from "./handlers/cron"
 import type { HandlerContext, WebhookHandler } from "./interfaces"
 import { formatError, logger } from "./logger"
+import type { Allowlist } from "./matchers"
 import type { LifecycleStore } from "./storage"
 
 export type AppEnv = {
@@ -84,6 +86,8 @@ export function createApp(opts: {
   apiToken: string
   cronScheduler: CronScheduler | null
   mcpServer?: McpServer | null
+  allowlist?: Allowlist
+  persistAllowlist?: (orgs: string[], repos: string[]) => Promise<void>
 }): Hono<AppEnv> {
   const app = new Hono<AppEnv>()
 
@@ -172,6 +176,16 @@ export function createApp(opts: {
   app.get("/api/retention", apiGetRetentionHandler)
   app.put("/api/retention", apiSetRetentionHandler)
   app.post("/api/retention/prune", apiPruneHandler)
+
+  // Allowlist management routes
+  if (opts.allowlist && opts.persistAllowlist) {
+    const allowlistHandlers = makeAllowlistHandlers({
+      allowlist: opts.allowlist,
+      persistAllowlist: opts.persistAllowlist,
+    })
+    app.get("/api/allowlist", allowlistHandlers.get)
+    app.put("/api/allowlist", allowlistHandlers.set)
+  }
 
   // Cron job management routes
   if (opts.cronScheduler) {

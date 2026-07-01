@@ -12,6 +12,7 @@ import {
   Menu,
   Monitor,
   Moon,
+  Shield,
   Sun,
   Zap,
 } from "lucide-react"
@@ -24,6 +25,7 @@ const navItems = [
   { to: "/entities", label: "Entities", icon: GitPullRequest },
   { to: "/dispatches", label: "Dispatches", icon: Zap },
   { to: "/cron", label: "Cron Jobs", icon: Clock },
+  { to: "/allowlist", label: "Allowlist", icon: Shield },
 ]
 
 export default function Layout() {
