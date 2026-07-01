@@ -1,4 +1,18 @@
 # Changelog
+## 0.4.2
+
+### New Features ✨
+
+- (opentower) MCP endpoint + repository allowlist by @MathurAditya724 in [#3](https://github.com/MathurAditya724/outpost/pull/3)
+
+### Documentation 📚
+
+- Add Railway deploy button to README by @MathurAditya724 in [ec4f0b0a](https://github.com/MathurAditya724/outpost/commit/ec4f0b0a9879f223e0fca8969c1d4e84de03e055)
+
+### Other
+
+- Update README.md by @MathurAditya724 in [2b21515b](https://github.com/MathurAditya724/outpost/commit/2b21515b065ed93e6481da18ecf8facc1bb1860f)
+
 ## 0.4.1
 
 - No documented changes.
