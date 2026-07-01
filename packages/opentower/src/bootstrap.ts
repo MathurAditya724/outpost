@@ -6,15 +6,18 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import * as Sentry from "@sentry/bun"
 import type { Hono } from "hono"
+import { version as PLUGIN_VERSION } from "../package.json"
 import { resolveBotLogin } from "./bot-identity"
 import { configPath, normalizeTrigger, readWebhookConfig, resolveGithubAppFromEnv } from "./config"
 import { type CronScheduler, makeCronScheduler } from "./cron"
 import { type Dedup, makeDedup } from "./dedup"
 import { type EntityResolver, createEntityResolver } from "./entity-resolver"
 import { type AppEnv, createApp } from "./handler"
+import { makeMcpServer } from "./handlers/mcp"
 import { createHandlers } from "./handlers/registry"
 import type { AgentClient, HandlerContext } from "./interfaces"
 import { logger } from "./logger"
+import type { Allowlist } from "./matchers"
 import { type Pipeline, makePipeline } from "./pipeline"
 import { type DrainCounter, makeDrainCounter, makeSemaphore } from "./semaphore"
 import { DEFAULT_RETENTION_DAYS, type LifecycleStore, openLifecycleStore } from "./storage"
@@ -157,12 +160,32 @@ export async function bootstrap(opts: BootstrapOptions): Promise<BootstrapResult
     githubApp,
   })
 
+  // Repository allowlist. Normalized once (lowercased) so matchers can
+  // stay simple. Empty lists mean "not configured" -> allow everything.
+  const allowlist: Allowlist = {
+    orgs: (cfg.allowed_orgs ?? []).map((s) => s.toLowerCase().trim()).filter(Boolean),
+    repos: (cfg.allowed_repos ?? []).map((s) => s.toLowerCase().trim()).filter(Boolean),
+  }
+  if (allowlist.orgs.length > 0 || allowlist.repos.length > 0) {
+    logger.info("repo allowlist active", { orgs: allowlist.orgs, repos: allowlist.repos })
+  }
+
   const handlerContext: HandlerContext = {
     pipeline,
     dedup,
     store,
     botLogin,
     entityResolver,
+    allowlist,
+  }
+
+  // MCP endpoint for remote agent control. Gated on OPENTOWER_API_TOKEN:
+  // without a token there is no auth, so the endpoint is not mounted.
+  const mcpServer = apiToken ? makeMcpServer({ pipeline, defaultAgent, version: PLUGIN_VERSION }) : null
+  if (apiToken) {
+    logger.info("MCP endpoint enabled at /mcp")
+  } else {
+    logger.warn("OPENTOWER_API_TOKEN not set -- /mcp endpoint disabled")
   }
 
   const app = createApp({
@@ -171,6 +194,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<BootstrapResult
     store,
     apiToken,
     cronScheduler,
+    mcpServer,
   })
 
   const server = Bun.serve({

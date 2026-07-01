@@ -5,6 +5,7 @@
 
 import type { Dedup } from "./dedup"
 import type { EntityResolver } from "./entity-resolver"
+import type { Allowlist } from "./matchers"
 import type { Pipeline } from "./pipeline"
 import type { LifecycleStore } from "./storage"
 
@@ -45,6 +46,7 @@ export type HandlerContext = {
   store: LifecycleStore
   botLogin: string | null
   entityResolver: EntityResolver | null
+  allowlist: Allowlist
 }
 
 // Interface for pluggable webhook/event handlers.

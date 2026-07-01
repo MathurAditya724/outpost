@@ -25,11 +25,14 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.75",
+    "@hono/mcp": "^0.3.0",
+    "@modelcontextprotocol/sdk": "^1.25.1",
     "@opencode-ai/sdk": "^1.14.40",
     "@sentry/bun": "^9.0.0",
     "ai": "^6.0.175",
     "croner": "^10.0.1",
     "hono": "^4.0.0",
+    "hono-rate-limiter": "^0.5.3",
     "zod": "^4.4.3"
   },
   "peerDependencies": {

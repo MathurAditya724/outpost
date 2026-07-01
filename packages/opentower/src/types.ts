@@ -1,6 +1,6 @@
 // Shared types for the opentower plugin.
 
-export type TriggerSource = "github_webhook" | "github_app" | "email" | "cron"
+export type TriggerSource = "github_webhook" | "github_app" | "email" | "cron" | "mcp"
 
 export type Trigger = {
   name: string
@@ -23,6 +23,14 @@ export type WebhookConfig = {
   batch_window_ms?: number
   default_cwd?: string
   triggers?: Trigger[]
+
+  // Repository allowlist. When either list is non-empty, an event is only
+  // dispatched if its repository matches. `allowed_repos` matches
+  // "owner/repo" exactly; `allowed_orgs` matches the owner segment. Both
+  // are case-insensitive. When both are empty/unset, all repos are allowed.
+  // Applies to all event sources (github_webhook, github_app, email).
+  allowed_orgs?: string[]
+  allowed_repos?: string[]
 
   // Data retention in days. Dispatches and entities older than this are
   // pruned on startup and then periodically. Defaults to 30 days.
