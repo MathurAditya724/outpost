@@ -1,4 +1,10 @@
 # Changelog
+## 0.4.5
+
+### Bug Fixes 🐛
+
+- (coder) Initialize plugins through the OpenCode health check by @MathurAditya724 in [#8](https://github.com/MathurAditya724/outpost/pull/8)
+
 ## 0.4.4
 
 ### Bug Fixes 🐛
