@@ -293,7 +293,9 @@ resource "coder_app" "opencode" {
   share        = "owner"
 
   healthcheck {
-    url       = "http://localhost:4096"
+    # OpenCode loads project plugins lazily. The UI root does not initialize
+    # them, so probe a project API to start opentower before any browser visit.
+    url       = "http://localhost:4096/path?directory=/home/developer/dev"
     interval  = 10
     threshold = 6
   }
